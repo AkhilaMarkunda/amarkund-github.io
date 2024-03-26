@@ -1,0 +1,185 @@
+---
+title: "Forecasting Retail Dynamics" 
+format: revealjs 
+editor: visual
+---
+
+## INTRODUCTION
+
+-   Consumer confidence is a key indicator of the economy's health, reflecting the public's optimism or pessimism about their financial future.
+-   Elevated consumer confidence typically results in increased retail sales, as optimistic consumers are more inclined to spend.
+-   The dynamic between consumer confidence and retail sales underscores the interconnectedness of consumer sentiment, economic activity, and market trends.
+-   Analysts use shifts in consumer confidence to forecast retail sales trends and refine economic projections.
+
+## Project Objective:
+
+To develop a predictive model that accurately forecasts retail sales based on consumer confidence indices, utilizing historical data to understand how shifts in consumer sentiment influence spending behaviors. This model aims to provide stakeholders with insights to optimize business strategies, improve customer engagement, and enhance economic analysis.
+
+## Dataset:
+
+-   We created a multivariate series using
+
+-   **Consumer Confidence Index**: One dataset is the "Consumer Opinion Surveys: Confidence Indicators: Composite Indicators: OECD Indicator for United States (CSCICP03USM665S)" from FRED, providing a monthly, seasonally adjusted consumer confidence indicator​
+
+-   **Advance Retail Sales: Retail Trade (RSXFS)**: For retail sales data, the "Advance Retail Sales: Retail Trade" dataset from FRED gives monthly, seasonally adjusted figures in millions of dollars. It includes e-commerce sales and is based on a subsample of firms from the larger Monthly Retail Trade Survey, providing an advance estimate that is later revised
+
+-   Consumer confidence measures how optimistic or pessimistic consumers are regarding their expected financial situation. A higher consumer confidence level often leads to increased retail sales.
+
+## Aquiring and Merging the Data
+
+```{r,echo = TRUE}
+# Reading and Preparing Data
+retail_sales <- read.csv("C:/Users/Akhila Markunda/Downloads/RSXFS.csv")
+retail_sales <- na.omit(retail_sales)
+consumer_conf <- read.csv("C:/Users/Akhila Markunda/Downloads/CSCICP03USM665S.csv")
+merged_data <- merge(retail_sales, consumer_conf, by = "DATE")
+merged_data$DATE <- as.Date(merged_data$DATE)
+merged_data_f <- merged_data[merged_data$DATE <= as.Date("2024-01-01"), ]
+```
+
+## Observations from the Data
+
+-   Reads and cleans both datasets to remove any missing values.
+
+-   Merges the datasets on the common 'DATE' column to combine relevant information.
+
+-   Converts the 'DATE' column to proper date format for accurate time series analysis.
+
+# Consumer confidence
+
+```{r,echo = TRUE}
+library(ggplot2)
+ggplot(merged_data_f, aes(x = DATE, y = CSCICP03USM665S)) + geom_line() + labs(title = "Consumer confidence", x = "Year", y = "Normalized OECD")
+```
+
+## Retail sales
+
+```{r,echo = TRUE}
+ggplot(merged_data_f, aes(x = DATE, y = RSXFS)) + geom_line() + labs(title = "Retail sales", x = "Year", y = "Dollars")
+```
+
+## Correlating the Data
+
+```{r,echo = TRUE}
+# Correlation
+correlation <- cor(merged_data_f$RSXFS, merged_data_f$CSCICP03USM665S)
+print(paste("Correlation between them is", round(correlation, 2)))
+```
+
+-   Confidence Index suggests a moderate negative relationship. This means, as consumer confidence increases, retail sales slightly tend to decrease, or vice versa.
+
+## ACF Plot
+
+```{r,echo = TRUE}
+acf(merged_data_f$RSXFS)
+```
+
+## Description
+
+The ACF plot is utilized to examine the autocorrelation of the time series at various lags, which is pivotal for identifying the nature of the underlying data and potential need for MA terms in time series modeling.
+
+**Observation:** The plot shows a gradual decline in ACF values as the lag increases, but the values stay well above the significance bounds (blue dashed lines), indicating sustained autocorrelation at higher lags.
+
+**Inference:** The slow decay of autocorrelation suggests that the time series may be better modeled with an AR (Autoregressive) process rather than an MA process. The sustained correlation at higher lags in the data, which may require a ARIMA model for more accurate modeling.
+
+## PACF Plot
+
+```{r,echo = TRUE}
+pacf(merged_data_f$RSXFS)
+```
+
+## Description
+
+PACF plots illustrate the correlation of a series with its lags.
+
+Observation: The PACF values remain within the confidence bounds, indicating no significant correlation at higher lags.
+
+Inference: The lack of significant spikes suggests that the time series data likely has a short memory, meaning its current value is not strongly influenced by its values at distant past lags.
+
+# Modelling the Data
+
+```{r,echo = TRUE}
+data_length <- nrow(merged_data_f) # Use nrow for row count
+train_length <- floor(data_length * 0.8)
+
+# Split the data by rows
+train_set <- merged_data_f[1:train_length, ]
+test_set <- merged_data_f[(train_length+1):data_length, ]
+
+```
+
+# Auto ARIMA Model:
+
+```{r,echo = TRUE}
+library(forecast)
+time_series_data <- ts(train_set$RSXFS, start=c(1), frequency=12)
+fit_arima <- auto.arima(time_series_data, xreg = train_set$CSCICP03USM665S)
+summary(fit_arima)
+```
+
+# Forecast:
+
+```{r,echo = TRUE}
+library(forecast)
+future_forecast <- forecast(fit_arima,xreg=test_set$CSCICP03USM665S, h = 12)
+# Print the forecast
+print(future_forecast$mean[1])
+```
+
+# Vector Autoregression (VAR) Model:
+
+```{r,echo = TRUE}
+library(vars)
+time_series_data_1 <- ts(train_set[, c("RSXFS", "CSCICP03USM665S")],start = c(1), frequency = 12)
+var_model <- VAR(time_series_data_1)
+summary(var_model)
+```
+
+# Forecast:
+
+```{r,echo = TRUE}
+future_forecast_1 <- predict(var_model,h = 12)
+# Print the forecast
+print(future_forecast_1$fcst$RSXFS[1,'fcst'])
+```
+
+## Cross Validation for Auto ARIMA:
+
+```{r,echo = TRUE}
+# Auto ARIMA model's accuracy metrics
+arima_mae <- mean(abs(future_forecast$mean - test_set$RSXFS))
+arima_mse <- mean((future_forecast$mean - test_set$RSXFS)^2)
+arima_rmse <- sqrt(arima_mse)
+arima_mape <- mean(abs((future_forecast$mean - test_set$RSXFS) / test_set$RSXFS) * 100)
+print(paste("Mean Absolute Error:",{arima_mae}))
+print(paste("Mean Square Error:",{arima_mse}))
+print(paste("Root Mean Square Error:",{arima_rmse}))
+print(paste("Mean Absolute Percentage Error:",{arima_mape}))
+```
+
+## Cross Validation for VAR:
+
+```{r,echo = TRUE}
+# Auto ARIMA model's accuracy metrics
+var_mae <- mean(abs(future_forecast_1$fcst$RSXFS[,'fcst'] - test_set$RSXFS))
+var_mse <- mean((future_forecast_1$fcst$RSXFS[,'fcst'] - test_set$RSXFS)^2)
+var_rmse <- sqrt(var_mse)
+var_mape <- mean(abs((future_forecast_1$fcst$RSXFS[,'fcst'] - test_set$RSXFS) / test_set$RSXFS) * 100)
+print(paste("Mean Absolute Error:",{var_mae}))
+print(paste("Mean Square Error:",{var_mse}))
+print(paste("Root Mean Square Error:",{var_rmse}))
+print(paste("Mean Absolute Percentage Error:",{var_mape}))
+```
+
+# Results:
+
+The Auto ARIMA model's superior performance in forecast accuracy over the VAR model is indicated by its lower values in all error metrics. This precision in prediction highlights the Auto ARIMA's effectiveness in capturing the dynamics of retail sales, making it a valuable tool for forecasting in environments where understanding future trends is essential. Its ability to closely match the actual observed values underscores its utility in strategic decision-making, allowing for more informed and effective planning and operational adjustments. The VAR model, while useful for multivariate analysis, shows less accuracy in this context, suggesting that the Auto ARIMA model is better suited for univariate retail sales forecasting tasks.
+
+# Practical Implications:
+
+Forecasting retail sales and consumer confidence has significant implications for various stakeholders:
+
+-   **Economic Insight**: Provides early indicators of economic health, helping policymakers gauge consumer spending trends.
+-   **Policy Making**: Influences government decisions on fiscal policies, such as stimulus measures to boost consumer spending.
+-   **Business Strategy**: Helps retailers and manufacturers plan inventory, marketing strategies, and pricing decisions based on predicted consumer behavior.
+-   **Investment Decisions**: Investors might use these forecasts to assess the health of the retail sector, influencing stock market investments.

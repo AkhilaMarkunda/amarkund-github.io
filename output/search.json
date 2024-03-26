@@ -1,0 +1,93 @@
+[
+  {
+    "objectID": "index.html#introduction",
+    "href": "index.html#introduction",
+    "title": "Forecasting Retail Dynamics",
+    "section": "INTRODUCTION",
+    "text": "INTRODUCTION\n\nConsumer confidence is a key indicator of the economy’s health, reflecting the public’s optimism or pessimism about their financial future.\nElevated consumer confidence typically results in increased retail sales, as optimistic consumers are more inclined to spend.\nThe dynamic between consumer confidence and retail sales underscores the interconnectedness of consumer sentiment, economic activity, and market trends.\nAnalysts use shifts in consumer confidence to forecast retail sales trends and refine economic projections."
+  },
+  {
+    "objectID": "index.html#project-objective",
+    "href": "index.html#project-objective",
+    "title": "Forecasting Retail Dynamics",
+    "section": "Project Objective:",
+    "text": "Project Objective:\nTo develop a predictive model that accurately forecasts retail sales based on consumer confidence indices, utilizing historical data to understand how shifts in consumer sentiment influence spending behaviors. This model aims to provide stakeholders with insights to optimize business strategies, improve customer engagement, and enhance economic analysis."
+  },
+  {
+    "objectID": "index.html#dataset",
+    "href": "index.html#dataset",
+    "title": "Forecasting Retail Dynamics",
+    "section": "Dataset:",
+    "text": "Dataset:\n\nWe created a multivariate series using\nConsumer Confidence Index: One dataset is the “Consumer Opinion Surveys: Confidence Indicators: Composite Indicators: OECD Indicator for United States (CSCICP03USM665S)” from FRED, providing a monthly, seasonally adjusted consumer confidence indicator​\nAdvance Retail Sales: Retail Trade (RSXFS): For retail sales data, the “Advance Retail Sales: Retail Trade” dataset from FRED gives monthly, seasonally adjusted figures in millions of dollars. It includes e-commerce sales and is based on a subsample of firms from the larger Monthly Retail Trade Survey, providing an advance estimate that is later revised\nConsumer confidence measures how optimistic or pessimistic consumers are regarding their expected financial situation. A higher consumer confidence level often leads to increased retail sales."
+  },
+  {
+    "objectID": "index.html#aquiring-and-merging-the-data",
+    "href": "index.html#aquiring-and-merging-the-data",
+    "title": "Forecasting Retail Dynamics",
+    "section": "Aquiring and Merging the Data",
+    "text": "Aquiring and Merging the Data\n\n# Reading and Preparing Data\nretail_sales &lt;- read.csv(\"C:/Users/Akhila Markunda/Downloads/RSXFS.csv\")\nretail_sales &lt;- na.omit(retail_sales)\nconsumer_conf &lt;- read.csv(\"C:/Users/Akhila Markunda/Downloads/CSCICP03USM665S.csv\")\nmerged_data &lt;- merge(retail_sales, consumer_conf, by = \"DATE\")\nmerged_data$DATE &lt;- as.Date(merged_data$DATE)\nmerged_data_f &lt;- merged_data[merged_data$DATE &lt;= as.Date(\"2024-01-01\"), ]"
+  },
+  {
+    "objectID": "index.html#observations-from-the-data",
+    "href": "index.html#observations-from-the-data",
+    "title": "Forecasting Retail Dynamics",
+    "section": "Observations from the Data",
+    "text": "Observations from the Data\n\nReads and cleans both datasets to remove any missing values.\nMerges the datasets on the common ‘DATE’ column to combine relevant information.\nConverts the ‘DATE’ column to proper date format for accurate time series analysis."
+  },
+  {
+    "objectID": "index.html#retail-sales",
+    "href": "index.html#retail-sales",
+    "title": "Forecasting Retail Dynamics",
+    "section": "Retail sales",
+    "text": "Retail sales\n\nggplot(merged_data_f, aes(x = DATE, y = RSXFS)) + geom_line() + labs(title = \"Retail sales\", x = \"Year\", y = \"Dollars\")"
+  },
+  {
+    "objectID": "index.html#correlating-the-data",
+    "href": "index.html#correlating-the-data",
+    "title": "Forecasting Retail Dynamics",
+    "section": "Correlating the Data",
+    "text": "Correlating the Data\n\n# Correlation\ncorrelation &lt;- cor(merged_data_f$RSXFS, merged_data_f$CSCICP03USM665S)\nprint(paste(\"Correlation between them is\", round(correlation, 2)))\n\n[1] \"Correlation between them is -0.41\"\n\n\n\nConfidence Index suggests a moderate negative relationship. This means, as consumer confidence increases, retail sales slightly tend to decrease, or vice versa."
+  },
+  {
+    "objectID": "index.html#acf-plot",
+    "href": "index.html#acf-plot",
+    "title": "Forecasting Retail Dynamics",
+    "section": "ACF Plot",
+    "text": "ACF Plot\n\nacf(merged_data_f$RSXFS)"
+  },
+  {
+    "objectID": "index.html#description",
+    "href": "index.html#description",
+    "title": "Forecasting Retail Dynamics",
+    "section": "Description",
+    "text": "Description\nThe ACF plot is utilized to examine the autocorrelation of the time series at various lags, which is pivotal for identifying the nature of the underlying data and potential need for MA terms in time series modeling.\nObservation: The plot shows a gradual decline in ACF values as the lag increases, but the values stay well above the significance bounds (blue dashed lines), indicating sustained autocorrelation at higher lags.\nInference: The slow decay of autocorrelation suggests that the time series may be better modeled with an AR (Autoregressive) process rather than an MA process. The sustained correlation at higher lags in the data, which may require a ARIMA model for more accurate modeling."
+  },
+  {
+    "objectID": "index.html#pacf-plot",
+    "href": "index.html#pacf-plot",
+    "title": "Forecasting Retail Dynamics",
+    "section": "PACF Plot",
+    "text": "PACF Plot\n\npacf(merged_data_f$RSXFS)"
+  },
+  {
+    "objectID": "index.html#description-1",
+    "href": "index.html#description-1",
+    "title": "Forecasting Retail Dynamics",
+    "section": "Description",
+    "text": "Description\nPACF plots illustrate the correlation of a series with its lags.\nObservation: The PACF values remain within the confidence bounds, indicating no significant correlation at higher lags.\nInference: The lack of significant spikes suggests that the time series data likely has a short memory, meaning its current value is not strongly influenced by its values at distant past lags."
+  },
+  {
+    "objectID": "index.html#cross-validation-for-auto-arima",
+    "href": "index.html#cross-validation-for-auto-arima",
+    "title": "Forecasting Retail Dynamics",
+    "section": "Cross Validation for Auto ARIMA:",
+    "text": "Cross Validation for Auto ARIMA:\n\n# Auto ARIMA model's accuracy metrics\narima_mae &lt;- mean(abs(future_forecast$mean - test_set$RSXFS))\narima_mse &lt;- mean((future_forecast$mean - test_set$RSXFS)^2)\narima_rmse &lt;- sqrt(arima_mse)\narima_mape &lt;- mean(abs((future_forecast$mean - test_set$RSXFS) / test_set$RSXFS) * 100)\nprint(paste(\"Mean Absolute Error:\",{arima_mae}))\n\n[1] \"Mean Absolute Error: 59946.0936085325\"\n\nprint(paste(\"Mean Square Error:\",{arima_mse}))\n\n[1] \"Mean Square Error: 6240981981.33087\"\n\nprint(paste(\"Root Mean Square Error:\",{arima_rmse}))\n\n[1] \"Root Mean Square Error: 78999.885957708\"\n\nprint(paste(\"Mean Absolute Percentage Error:\",{arima_mape}))\n\n[1] \"Mean Absolute Percentage Error: 10.7148898424971\""
+  },
+  {
+    "objectID": "index.html#cross-validation-for-var",
+    "href": "index.html#cross-validation-for-var",
+    "title": "Forecasting Retail Dynamics",
+    "section": "Cross Validation for VAR:",
+    "text": "Cross Validation for VAR:\n\n# Auto ARIMA model's accuracy metrics\nvar_mae &lt;- mean(abs(future_forecast_1$fcst$RSXFS[,'fcst'] - test_set$RSXFS))\nvar_mse &lt;- mean((future_forecast_1$fcst$RSXFS[,'fcst'] - test_set$RSXFS)^2)\nvar_rmse &lt;- sqrt(var_mse)\nvar_mape &lt;- mean(abs((future_forecast_1$fcst$RSXFS[,'fcst'] - test_set$RSXFS) / test_set$RSXFS) * 100)\nprint(paste(\"Mean Absolute Error:\",{var_mae}))\n\n[1] \"Mean Absolute Error: 85899.0861915569\"\n\nprint(paste(\"Mean Square Error:\",{var_mse}))\n\n[1] \"Mean Square Error: 12127634127.5659\"\n\nprint(paste(\"Root Mean Square Error:\",{var_rmse}))\n\n[1] \"Root Mean Square Error: 110125.538035307\"\n\nprint(paste(\"Mean Absolute Percentage Error:\",{var_mape}))\n\n[1] \"Mean Absolute Percentage Error: 15.4277958552671\""
+  }
+]
